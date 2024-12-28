@@ -260,7 +260,7 @@ elif type complete >/dev/null 2>&1; then
     complete -o filenames -C '_z --complete "$COMP_LINE"' ${_Z_CMD:-z}
     [ "$_Z_NO_PROMPT_COMMAND" ] || {
         # populate directory list. avoid clobbering other PROMPT_COMMANDs.
-        grep "_z --add" <<< "$PROMPT_COMMAND" >/dev/null || {
+        \grep "_z --add" <<< "$PROMPT_COMMAND" >/dev/null || {
             PROMPT_COMMAND="$PROMPT_COMMAND"$'\n''(_z --add "$(command pwd '$_Z_RESOLVE_SYMLINKS' 2>/dev/null)" 2>/dev/null &);'
         }
     }
