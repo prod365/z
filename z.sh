@@ -14,6 +14,7 @@
 #         set $_Z_NO_RESOLVE_SYMLINKS to prevent symlink resolution.
 #         set $_Z_NO_PROMPT_COMMAND if you're handling PROMPT_COMMAND yourself.
 #         set $_Z_EXCLUDE_DIRS to an array of directories to exclude.
+#         set $_Z_SKIPTEST_DIRS to an array of directories to skip existance test (eg, nfs paths)
 #         set $_Z_OWNER to your username if you want use z while sudo with $HOME kept
 #
 # USE:
@@ -44,12 +45,23 @@ _z() {
     _z_dirs () {
         [ -f "$datafile" ] || return
 
-        local line
+        local line skipdir
         while read line; do
+            # skip test on any folder and subfolder that we should skip
+            for skipdir in "${_Z_SKIPTEST_DIRS[@]}"; do
+                if [ "${line#$skipdir}" != "$line" ]; then
+                    echo "$line"
+                    continue 2
+                fi
+            done
             # only count directories
             [ -d "${line%%\|*}" ] && echo "$line"
         done < "$datafile"
         return 0
+    }
+
+    _z_forgetdir () {
+        \sed -i -e "\:^${1}|.*:d" "$datafile"
     }
 
     # add entries
@@ -128,7 +140,7 @@ _z() {
                     l) list=1;;
                     r) typ="rank";;
                     t) typ="recent";;
-                    x) \sed -i -e "\:^${PWD}|.*:d" "$datafile";;
+                    x) _z_forgetdir "$PWD";;
                 esac; opt=${opt:1}; done;;
              *) fnd="$fnd${fnd:+ }$1";;
         esac; last=$1; [ "$#" -gt 0 ] && shift; done
@@ -137,7 +149,15 @@ _z() {
         # if we hit enter on a completion just go there
         case "$last" in
             # completions will always start with /
-            /*) [ -z "$list" -a -d "$last" ] && builtin cd "$last" && return;;
+            /*)
+                if [ -z "$list" -a -d "$last" ]; then
+                    if builtin cd "$last"; then
+                        return
+                    else
+                        _z_forgetdir "$last"
+                    fi
+                fi
+                ;;
         esac
 
         # no file yet
@@ -215,11 +235,15 @@ _z() {
         ')"
 
         if [ "$?" -eq 0 ]; then
-          if [ "$cd" ]; then
-            if [ "$echo" ]; then echo "$cd"; else builtin cd "$cd"; fi
-          fi
+            if [ "$cd" ]; then
+                if [ "$echo" ]; then
+                    echo "$cd"
+                else
+                    builtin cd "$cd" || _z_forgetdir "$cd"
+                fi
+            fi
         else
-          return $?
+            return $?
         fi
     fi
 }
@@ -265,3 +289,5 @@ elif type complete >/dev/null 2>&1; then
         }
     }
 fi
+
+# vim: ft=sh expandtab
